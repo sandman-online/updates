@@ -1,0 +1,11 @@
+{
+  "firmware": {
+    "version": "0.7",
+    "url": "https://raw.githubusercontent.com/christianweil/sandman-updates/main/releases/0.7/update_v07.bin",
+    "changelog": "- Online Update-System hinzugefügt\n- Verbesserte Fehlerbehandlung\n- Performance-Optimierungen"
+  },
+  "filesystem": {
+    "version": "0.7",
+    "url": "https://raw.githubusercontent.com/christianweil/sandman-updates/main/releases/0.7/update_v07.littlefs.bin"
+  }
+} 
