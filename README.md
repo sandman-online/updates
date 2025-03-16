@@ -2,7 +2,7 @@
 
 Dieses Repository enthält Updates für die SANDMAN Firmware.
 
-## Aktuelle Version: 0.7
+## Aktuelle Version: 0.9
 
 ### Changelog
 - Online Update-System hinzugefügt
