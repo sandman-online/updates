@@ -1,8 +1,8 @@
 {
   "firmware": {
-    "version": "0.7",
-    "url": "https://raw.githubusercontent.com/christianweil/sandman-updates/main/releases/0.7/update_v0_7.bin",
-    "changelog": "- Online Update-System hinzugefügt\n- Verbesserte Fehlerbehandlung\n- Performance-Optimierungen"
+    "version": "0.9",
+    "url": "https://raw.githubusercontent.com/christianweil/sandman-updates/main/releases/0.9/update_v0_9.bin",
+    "changelog": "- Added Online Update-System\n- Created Test Simulator\n- Added Partner Dashboard Functionality"
   },
   "filesystem": {
     "version": "0.7",
