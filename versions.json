@@ -1,6 +1,6 @@
 {
   "firmware": {
-    "version": "0.8",
+    "version": "0.9",
     "url": "https://raw.githubusercontent.com/christianweil/sandman-updates/main/releases/0.9/update_v0_9.bin",
     "changelog": "- Added Online Update-System\n- Created Test Simulator\n- Added Partner Dashboard Functionality"
   },
