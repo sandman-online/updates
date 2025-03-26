@@ -2,7 +2,7 @@
 
 Dieses Repository enthält Updates für die 24011901 Firmware.
 
-## Aktuelle Version: 0.9
+## Aktuelle Version: 0.9.1
 
 ### Changelog
 - Online Update-System hinzugefügt
