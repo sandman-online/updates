@@ -1,15 +1,15 @@
 # Updates
 
-Dieses Repository enthält Updates für die 24011901 Firmware.
+This repository contains updates for the Sandman firmware.
 
-## Aktuelle Version: 0.9.1
+## Current Version: 0.9.1
 
 ### Changelog
-- Online Update-System hinzugefügt
-- Verbesserte Fehlerbehandlung
-- Performance-Optimierungen
+- Added online update system
+- Improved error handling
+- Performance optimizations
 
-## Update-Prozess
-1. Prüfe auf Updates über das Web-Interface
-2. Installiere verfügbare Updates
-3. Gerät startet automatisch neu
+## Update-Process
+1. Check for updates via the web interface
+2. Install available updates
+3. Device restarts automatically
