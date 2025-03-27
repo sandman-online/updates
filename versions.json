@@ -2,7 +2,7 @@
   "firmware": {
     "version": "0.9.1",
     "url": "https://raw.githubusercontent.com/sandman-online/updates/main/releases/0.9.1/update_v0_9_1.bin",
-    "changelog": "- Added Online Update-System\n- Created Test Simulator\n- Added Partner Dashboard Functionality\n-"
+    "changelog": "- Added Online Update-System\n- Created Test Simulator\n- Added Partner Dashboard Functionality\n"
   },
   "filesystem": {
     "version": "0.7",
