@@ -1,0 +1,2122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sandman Dashboard</title>
+    
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+    
+    <!-- Chart.js and Moment.js from CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.29.1/moment.min.js"></script>
+    
+    <!-- OpenStreetMap und Leaflet -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.js"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.css" />
+    <!-- Leaflet Geocoder -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.css" />
+    <script src="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.js"></script>
+    
+    <style>
+        :root {
+            --primary-color: #007bff;
+            --secondary-color: #6c757d;
+            --success-color: #28a745;
+            --warning-color: #ffc107;
+            --danger-color: #dc3545;
+            --light-bg: #f8f9fa;
+            --dark-bg: #343a40;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            background-color: var(--light-bg);
+            color: var(--dark-bg);
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .header {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            margin-bottom: 20px;
+            padding: 10px;
+            justify-content: flex-end;
+        }
+
+        .logo {
+            height: 20px;
+            width: auto;
+            position: absolute;
+            left: 50%;
+            transform: translateX(-50%);
+            top: -75px;
+            z-index: 2;
+        }
+
+        .container {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 20px;
+            padding: 20px;
+        }
+
+        .main-content {
+            grid-column: 1;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        .side-content {
+            grid-column: 2;
+            position: sticky;
+            top: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            height: calc(100vh - 40px);
+        }
+
+        .image-container {
+            position: fixed;
+            left: calc(50% + 350px);
+            top: 50%;
+            transform: translateY(-50%);
+            width: 150px;
+        }
+            
+        .background-image {
+            width: 100%;
+            height: auto;
+            pointer-events: none;
+            z-index: -1;
+            filter: none;
+            mix-blend-mode: normal;
+        }
+            
+        .wheel-image {
+            display: block;
+            position: absolute;
+            width: 51%;
+            left: 42.7%;
+            top: 64.2%;
+            transform: translate(-50%, -50%);
+            pointer-events: none;
+            z-index: 1;
+            mix-blend-mode: normal;
+            opacity: 1;
+            transform-origin: 50% 50%;
+            animation: spin 10s linear infinite;
+        }
+            
+        @keyframes spin {
+            from {
+                transform: translate(-50%, -50%) rotate(0deg) translateZ(0);
+            }
+            to {
+                transform: translate(-50%, -50%) rotate(-360deg) translateZ(0);
+            }
+        }
+
+        .add-device-form {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 30px;
+            transition: all 0.3s ease;
+            position: relative;
+        }
+
+        .validation-status {
+            position: absolute;
+            right: 20px;
+            top: 50%;
+            transform: translateY(-50%);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            margin-top: -15px;
+            z-index: 1000;
+        }
+
+        .country-input-container {
+            position: relative;
+        }
+
+        .country-suggestions {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            max-height: 200px;
+            overflow-y: auto;
+            z-index: 1000;
+            display: none;
+        }
+
+        .country-suggestion {
+            padding: 8px 12px;
+            cursor: pointer;
+        }
+
+        .country-suggestion:hover {
+            background-color: #f0f0f0;
+        }
+
+        .validation-status.show {
+            opacity: 1;
+        }
+
+        .validation-status.valid {
+            color: var(--success-color);
+        }
+
+        .validation-status.invalid {
+            color: var(--danger-color);
+        }
+
+        .validation-status .icon {
+            font-size: 1.2em;
+        }
+
+        .extended-fields {
+            max-height: 0;
+            overflow: hidden;
+            opacity: 0;
+            transition: all 0.3s ease;
+        }
+
+        .extended-fields.show {
+            max-height: 1000px;
+            opacity: 1;
+            margin-top: 15px;
+        }
+
+        @keyframes validationSuccess {
+            0% {
+                transform: scale(1);
+            }
+            50% {
+                transform: scale(1.02);
+            }
+            100% {
+                transform: scale(1);
+            }
+        }
+
+        .validation-success {
+            position: relative;
+        }
+
+        .validation-success::before {
+            content: '✓';
+            position: absolute;
+            right: -30px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--success-color);
+            font-size: 1.2em;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .validation-success.show::before {
+            opacity: 1;
+        }
+
+        .validation-success input {
+            border-color: var(--success-color);
+            animation: validationSuccess 0.5s ease;
+        }
+
+        .pulse-animation {
+            animation: pulse 0.5s ease-in-out;
+        }
+
+        @keyframes pulse {
+            0% {
+                box-shadow: 0 0 0 0 rgba(40, 167, 69, 0.4);
+            }
+            70% {
+                box-shadow: 0 0 0 10px rgba(40, 167, 69, 0);
+            }
+            100% {
+                box-shadow: 0 0 0 0 rgba(40, 167, 69, 0);
+            }
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+            position: relative;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 500;
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+
+        .form-group textarea {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            height: 100px;
+            resize: vertical;
+        }
+
+        .form-group select {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            background-color: white;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: 500;
+            transition: background-color 0.3s;
+        }
+
+        .btn-primary {
+            background-color: var(--primary-color);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background-color: #0056b3;
+        }
+
+        .btn-secondary {
+            background-color: var(--secondary-color);
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background-color: #5a6268;
+        }
+
+        .devices-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .device-card {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            cursor: pointer;
+            transition: transform 0.3s;
+        }
+
+        .device-card:hover {
+            transform: translateY(-5px);
+        }
+
+        .device-card h3 {
+            margin-bottom: 10px;
+            color: var(--primary-color);
+        }
+
+        .online-status {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-right: 5px;
+        }
+
+        .online-status.online {
+            background-color: var(--success-color);
+        }
+
+        .online-status.offline {
+            background-color: var(--danger-color);
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5);
+            z-index: 1000;
+        }
+
+        .modal-content {
+            position: relative;
+            background-color: white;
+            margin: 50px auto;
+            padding: 20px;
+            width: 95%;
+            max-width: 1600px;
+            border-radius: 8px;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+
+        .close-modal {
+            position: absolute;
+            right: 20px;
+            top: 20px;
+            font-size: 24px;
+            cursor: pointer;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        .stat-card {
+            background: var(--light-bg);
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: var(--primary-color);
+        }
+
+        .chart-container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            height: 400px;
+            width: 100%;
+        }
+
+        .insights-container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+
+        .insight-item {
+            padding: 10px;
+            margin-bottom: 10px;
+            border-left: 4px solid var(--primary-color);
+            background: var(--light-bg);
+        }
+
+        .warning {
+            border-left-color: var(--warning-color);
+        }
+
+        .success {
+            border-left-color: var(--success-color);
+        }
+
+        .danger {
+            border-left-color: var(--danger-color);
+        }
+
+        .filter-controls {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+
+        .filter-group {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .route-optimization {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-top: 20px;
+        }
+
+        .eco-indicator {
+            display: inline-block;
+            padding: 5px 10px;
+            border-radius: 15px;
+            font-size: 0.8em;
+            margin-top: 5px;
+        }
+
+        .eco-indicator.good {
+            background-color: #d4edda;
+            color: #155724;
+        }
+
+        .eco-indicator.warning {
+            background-color: #fff3cd;
+            color: #856404;
+        }
+
+        .route-optimization-container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-top: 20px;
+        }
+
+        .route-list {
+            max-height: 70vh;
+            overflow-y: auto;
+            padding-right: 20px;
+        }
+
+        .map-container {
+            position: sticky;
+            top: 20px;
+            height: 70vh;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .route-group {
+            background: var(--light-bg);
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .route-group:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+
+        .route-group.active {
+            border: 2px solid var(--primary-color);
+            background: #fff;
+        }
+
+        .route-stats {
+            display: flex;
+            gap: 15px;
+            margin: 10px 0;
+        }
+
+        .route-stat {
+            background: white;
+            padding: 8px 12px;
+            border-radius: 15px;
+            font-size: 0.9em;
+        }
+
+        .form-group.error input,
+        .form-group.error textarea {
+            border-color: var(--danger-color);
+            animation: shake 0.5s ease-in-out;
+        }
+
+        .form-group.error label {
+            color: var(--danger-color);
+        }
+
+        .form-group.error::after {
+            content: 'Required field';
+            position: absolute;
+            bottom: -20px;
+            left: 0;
+            color: var(--danger-color);
+            font-size: 0.8em;
+        }
+
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-5px); }
+            75% { transform: translateX(5px); }
+        }
+
+        .address-input {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            margin-bottom: 10px;
+        }
+
+        .address-suggestions {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            max-height: 200px;
+            overflow-y: auto;
+            z-index: 1000;
+            display: none;
+        }
+
+        .address-suggestion {
+            padding: 8px 12px;
+            cursor: pointer;
+        }
+
+        .address-suggestion:hover {
+            background-color: #f0f0f0;
+        }
+
+        .start-point-input {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        #map {
+            height: 400px;
+            width: 100%;
+            border-radius: 8px;
+            margin-top: 15px;
+        }
+        .leaflet-popup-content {
+            margin: 8px 12px;
+        }
+        .leaflet-popup-content h3 {
+            margin: 0 0 5px 0;
+            color: #2196F3;
+        }
+        .leaflet-popup-content p {
+            margin: 5px 0;
+            font-size: 0.9em;
+        }
+        .leaflet-routing-container {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+    </div>
+
+    <div class="container">
+        <div class="main-content">
+        <div class="add-device-form">
+            <h2>Add New Sandman</h2>
+            <div class="form-group">
+                <label for="serialNumber">Serial Number</label>
+                <input type="text" id="serialNumber" placeholder="24011901" onchange="checkInitialFields()">
+            </div>
+            <div class="form-group">
+                <label for="macAddress">MAC Address</label>
+                <input type="text" id="macAddress" placeholder="AA:BB:CC:DD:EE:FF" onchange="checkInitialFields()">
+                <div class="validation-status" id="validationStatus"></div>
+            </div>
+            <div class="extended-fields" id="extendedFields">
+                <div class="form-group">
+                    <label for="customerName">Customer Name</label>
+                    <input type="text" id="customerName" placeholder="Company GmbH">
+                </div>
+                <div class="form-group">
+                    <label for="country">Country</label>
+                    <div class="country-input-container">
+                        <input type="text" id="country" placeholder="Start typing country name..." autocomplete="off">
+                        <div class="country-suggestions" id="countrySuggestions"></div>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="postalCode">Postal Code</label>
+                    <input type="text" id="postalCode" placeholder="12345">
+                </div>
+                <div class="form-group">
+                    <label for="estimatedVolume">Estimated Monthly Volume (kg)</label>
+                    <input type="number" id="estimatedVolume" placeholder="500">
+                </div>
+                <div class="form-group">
+                    <label for="notes">Notes</label>
+                    <textarea id="notes" placeholder="Additional information..."></textarea>
+                </div>
+            </div>
+            <button class="btn btn-primary" onclick="addDevice()">Add Device</button>
+        </div>
+
+            <div class="filter-controls">
+                <h3>Filter & Sort</h3>
+                <div class="filter-group">
+                    <select id="sortBy" onchange="applySorting()">
+                        <option value="stock">Sort by Stock Level</option>
+                        <option value="postal">Sort by Postal Code</option>
+                        <option value="volume">Sort by Monthly Volume</option>
+                    </select>
+                    <button class="btn btn-secondary" onclick="optimizeRoutes()">
+                        Optimize Delivery Routes
+                    </button>
+                </div>
+        </div>
+
+        <h2>My Sandmans</h2>
+        <div class="devices-list" id="devicesList">
+            <!-- Dynamically filled -->
+            </div>
+        </div>
+        
+        <div class="image-container">
+            <img src="Sandman_logo.png" alt="Sandman Logo" class="logo">
+            <img src="Sandman2.png" class="background-image" alt="Sandman" loading="eager" fetchpriority="high">
+            <img src="wheel.png" class="wheel-image" alt="Wheel" loading="eager" fetchpriority="high">
+        </div>
+    </div>
+
+    <div class="modal" id="deviceModal">
+        <div class="modal-content">
+            <span class="close-modal" onclick="closeModal()">&times;</span>
+            <div id="modalContent">
+                <!-- Wird dynamisch gefüllt -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Firebase Konfiguration
+        const firebaseConfig = {
+            apiKey: "AIzaSyBJLqptHHsz3QVRDYQmYZAKnHZBGQYYPaY",
+            authDomain: "sandman-online-b1656.firebaseapp.com",
+            databaseURL: "https://sandman-online-b1656-default-rtdb.firebaseio.com",
+            projectId: "sandman-online-b1656",
+            storageBucket: "sandman-online-b1656.appspot.com",
+            messagingSenderId: "1034472437946",
+            appId: "1:1034472437946:web:0a2a2f9a5f14f9961cee5a"
+        };
+
+        // Firebase initialisieren
+        firebase.initializeApp(firebaseConfig);
+        const database = firebase.database();
+
+        // Lokaler Speicher für Geräte-Zuordnung
+        let userDevices = JSON.parse(localStorage.getItem('userDevices')) || {};
+
+        // Länderliste
+        const countries = [
+            { name: 'Afghanistan', code: 'AF' },
+            { name: 'Albania', code: 'AL' },
+            { name: 'Algeria', code: 'DZ' },
+            { name: 'Andorra', code: 'AD' },
+            { name: 'Angola', code: 'AO' },
+            { name: 'Antigua and Barbuda', code: 'AG' },
+            { name: 'Argentina', code: 'AR' },
+            { name: 'Armenia', code: 'AM' },
+            { name: 'Australia', code: 'AU' },
+            { name: 'Austria', code: 'AT' },
+            { name: 'Azerbaijan', code: 'AZ' },
+            { name: 'Bahamas', code: 'BS' },
+            { name: 'Bahrain', code: 'BH' },
+            { name: 'Bangladesh', code: 'BD' },
+            { name: 'Barbados', code: 'BB' },
+            { name: 'Belarus', code: 'BY' },
+            { name: 'Belgium', code: 'BE' },
+            { name: 'Belize', code: 'BZ' },
+            { name: 'Benin', code: 'BJ' },
+            { name: 'Bhutan', code: 'BT' },
+            { name: 'Bolivia', code: 'BO' },
+            { name: 'Bosnia and Herzegovina', code: 'BA' },
+            { name: 'Botswana', code: 'BW' },
+            { name: 'Brazil', code: 'BR' },
+            { name: 'Brunei', code: 'BN' },
+            { name: 'Bulgaria', code: 'BG' },
+            { name: 'Burkina Faso', code: 'BF' },
+            { name: 'Burundi', code: 'BI' },
+            { name: 'Cambodia', code: 'KH' },
+            { name: 'Cameroon', code: 'CM' },
+            { name: 'Canada', code: 'CA' },
+            { name: 'Cape Verde', code: 'CV' },
+            { name: 'Central African Republic', code: 'CF' },
+            { name: 'Chad', code: 'TD' },
+            { name: 'Chile', code: 'CL' },
+            { name: 'China', code: 'CN' },
+            { name: 'Colombia', code: 'CO' },
+            { name: 'Comoros', code: 'KM' },
+            { name: 'Congo', code: 'CG' },
+            { name: 'Costa Rica', code: 'CR' },
+            { name: 'Croatia', code: 'HR' },
+            { name: 'Cuba', code: 'CU' },
+            { name: 'Cyprus', code: 'CY' },
+            { name: 'Czech Republic', code: 'CZ' },
+            { name: 'Denmark', code: 'DK' },
+            { name: 'Djibouti', code: 'DJ' },
+            { name: 'Dominica', code: 'DM' },
+            { name: 'Dominican Republic', code: 'DO' },
+            { name: 'Ecuador', code: 'EC' },
+            { name: 'Egypt', code: 'EG' },
+            { name: 'El Salvador', code: 'SV' },
+            { name: 'Equatorial Guinea', code: 'GQ' },
+            { name: 'Eritrea', code: 'ER' },
+            { name: 'Estonia', code: 'EE' },
+            { name: 'Eswatini', code: 'SZ' },
+            { name: 'Ethiopia', code: 'ET' },
+            { name: 'Fiji', code: 'FJ' },
+            { name: 'Finland', code: 'FI' },
+            { name: 'France', code: 'FR' },
+            { name: 'Gabon', code: 'GA' },
+            { name: 'Gambia', code: 'GM' },
+            { name: 'Georgia', code: 'GE' },
+            { name: 'Germany', code: 'DE' },
+            { name: 'Ghana', code: 'GH' },
+            { name: 'Greece', code: 'GR' },
+            { name: 'Grenada', code: 'GD' },
+            { name: 'Guatemala', code: 'GT' },
+            { name: 'Guinea', code: 'GN' },
+            { name: 'Guinea-Bissau', code: 'GW' },
+            { name: 'Guyana', code: 'GY' },
+            { name: 'Haiti', code: 'HT' },
+            { name: 'Honduras', code: 'HN' },
+            { name: 'Hungary', code: 'HU' },
+            { name: 'Iceland', code: 'IS' },
+            { name: 'India', code: 'IN' },
+            { name: 'Indonesia', code: 'ID' },
+            { name: 'Iran', code: 'IR' },
+            { name: 'Iraq', code: 'IQ' },
+            { name: 'Ireland', code: 'IE' },
+            { name: 'Israel', code: 'IL' },
+            { name: 'Italy', code: 'IT' },
+            { name: 'Jamaica', code: 'JM' },
+            { name: 'Japan', code: 'JP' },
+            { name: 'Jordan', code: 'JO' },
+            { name: 'Kazakhstan', code: 'KZ' },
+            { name: 'Kenya', code: 'KE' },
+            { name: 'Kiribati', code: 'KI' },
+            { name: 'Kuwait', code: 'KW' },
+            { name: 'Kyrgyzstan', code: 'KG' },
+            { name: 'Laos', code: 'LA' },
+            { name: 'Latvia', code: 'LV' },
+            { name: 'Lebanon', code: 'LB' },
+            { name: 'Lesotho', code: 'LS' },
+            { name: 'Liberia', code: 'LR' },
+            { name: 'Libya', code: 'LY' },
+            { name: 'Liechtenstein', code: 'LI' },
+            { name: 'Lithuania', code: 'LT' },
+            { name: 'Luxembourg', code: 'LU' },
+            { name: 'Madagascar', code: 'MG' },
+            { name: 'Malawi', code: 'MW' },
+            { name: 'Malaysia', code: 'MY' },
+            { name: 'Maldives', code: 'MV' },
+            { name: 'Mali', code: 'ML' },
+            { name: 'Malta', code: 'MT' },
+            { name: 'Marshall Islands', code: 'MH' },
+            { name: 'Mauritania', code: 'MR' },
+            { name: 'Mauritius', code: 'MU' },
+            { name: 'Mexico', code: 'MX' },
+            { name: 'Micronesia', code: 'FM' },
+            { name: 'Moldova', code: 'MD' },
+            { name: 'Monaco', code: 'MC' },
+            { name: 'Mongolia', code: 'MN' },
+            { name: 'Montenegro', code: 'ME' },
+            { name: 'Morocco', code: 'MA' },
+            { name: 'Mozambique', code: 'MZ' },
+            { name: 'Myanmar', code: 'MM' },
+            { name: 'Namibia', code: 'NA' },
+            { name: 'Nauru', code: 'NR' },
+            { name: 'Nepal', code: 'NP' },
+            { name: 'Netherlands', code: 'NL' },
+            { name: 'New Zealand', code: 'NZ' },
+            { name: 'Nicaragua', code: 'NI' },
+            { name: 'Niger', code: 'NE' },
+            { name: 'Nigeria', code: 'NG' },
+            { name: 'North Korea', code: 'KP' },
+            { name: 'North Macedonia', code: 'MK' },
+            { name: 'Norway', code: 'NO' },
+            { name: 'Oman', code: 'OM' },
+            { name: 'Pakistan', code: 'PK' },
+            { name: 'Palau', code: 'PW' },
+            { name: 'Palestine', code: 'PS' },
+            { name: 'Panama', code: 'PA' },
+            { name: 'Papua New Guinea', code: 'PG' },
+            { name: 'Paraguay', code: 'PY' },
+            { name: 'Peru', code: 'PE' },
+            { name: 'Philippines', code: 'PH' },
+            { name: 'Poland', code: 'PL' },
+            { name: 'Portugal', code: 'PT' },
+            { name: 'Qatar', code: 'QA' },
+            { name: 'Romania', code: 'RO' },
+            { name: 'Russia', code: 'RU' },
+            { name: 'Rwanda', code: 'RW' },
+            { name: 'Saint Kitts and Nevis', code: 'KN' },
+            { name: 'Saint Lucia', code: 'LC' },
+            { name: 'Saint Vincent and the Grenadines', code: 'VC' },
+            { name: 'Samoa', code: 'WS' },
+            { name: 'San Marino', code: 'SM' },
+            { name: 'Sao Tome and Principe', code: 'ST' },
+            { name: 'Saudi Arabia', code: 'SA' },
+            { name: 'Senegal', code: 'SN' },
+            { name: 'Serbia', code: 'RS' },
+            { name: 'Seychelles', code: 'SC' },
+            { name: 'Sierra Leone', code: 'SL' },
+            { name: 'Singapore', code: 'SG' },
+            { name: 'Slovakia', code: 'SK' },
+            { name: 'Slovenia', code: 'SI' },
+            { name: 'Solomon Islands', code: 'SB' },
+            { name: 'Somalia', code: 'SO' },
+            { name: 'South Africa', code: 'ZA' },
+            { name: 'South Korea', code: 'KR' },
+            { name: 'South Sudan', code: 'SS' },
+            { name: 'Spain', code: 'ES' },
+            { name: 'Sri Lanka', code: 'LK' },
+            { name: 'Sudan', code: 'SD' },
+            { name: 'Suriname', code: 'SR' },
+            { name: 'Sweden', code: 'SE' },
+            { name: 'Switzerland', code: 'CH' },
+            { name: 'Syria', code: 'SY' },
+            { name: 'Taiwan', code: 'TW' },
+            { name: 'Tajikistan', code: 'TJ' },
+            { name: 'Tanzania', code: 'TZ' },
+            { name: 'Thailand', code: 'TH' },
+            { name: 'Timor-Leste', code: 'TL' },
+            { name: 'Togo', code: 'TG' },
+            { name: 'Tonga', code: 'TO' },
+            { name: 'Trinidad and Tobago', code: 'TT' },
+            { name: 'Tunisia', code: 'TN' },
+            { name: 'Turkey', code: 'TR' },
+            { name: 'Turkmenistan', code: 'TM' },
+            { name: 'Tuvalu', code: 'TV' },
+            { name: 'Uganda', code: 'UG' },
+            { name: 'Ukraine', code: 'UA' },
+            { name: 'United Arab Emirates', code: 'AE' },
+            { name: 'United Kingdom', code: 'GB' },
+            { name: 'United States', code: 'US' },
+            { name: 'Uruguay', code: 'UY' },
+            { name: 'Uzbekistan', code: 'UZ' },
+            { name: 'Vanuatu', code: 'VU' },
+            { name: 'Vatican City', code: 'VA' },
+            { name: 'Venezuela', code: 'VE' },
+            { name: 'Vietnam', code: 'VN' },
+            { name: 'Yemen', code: 'YE' },
+            { name: 'Zambia', code: 'ZM' },
+            { name: 'Zimbabwe', code: 'ZW' }
+        ];
+
+        // Länder-Autovervollständigung
+        document.getElementById('country').addEventListener('input', function(e) {
+            const input = e.target;
+            const suggestions = document.getElementById('countrySuggestions');
+            const value = input.value.toLowerCase();
+
+            if (value.length < 2) {
+                suggestions.style.display = 'none';
+                return;
+            }
+
+            const matches = countries.filter(country => 
+                country.name.toLowerCase().includes(value)
+            );
+
+            if (matches.length > 0) {
+                suggestions.innerHTML = matches.map(country => `
+                    <div class="country-suggestion" data-code="${country.code}">
+                        ${country.name} (${country.code})
+                    </div>
+                `).join('');
+                suggestions.style.display = 'block';
+            } else {
+                suggestions.style.display = 'none';
+            }
+        });
+
+        document.getElementById('countrySuggestions').addEventListener('click', function(e) {
+            if (e.target.classList.contains('country-suggestion')) {
+                const code = e.target.dataset.code;
+                const name = e.target.textContent.split(' (')[0];
+                document.getElementById('country').value = name;
+                document.getElementById('countrySuggestions').style.display = 'none';
+            }
+        });
+
+        // Schließe Vorschläge bei Klick außerhalb
+        document.addEventListener('click', function(e) {
+            const countryInput = document.getElementById('country');
+            const suggestions = document.getElementById('countrySuggestions');
+            if (!countryInput.contains(e.target) && !suggestions.contains(e.target)) {
+                suggestions.style.display = 'none';
+            }
+        });
+
+        function checkInitialFields() {
+            const serialNumber = document.getElementById('serialNumber').value;
+            const macAddress = document.getElementById('macAddress').value;
+            const extendedFields = document.getElementById('extendedFields');
+            const validationStatus = document.getElementById('validationStatus');
+
+            if (serialNumber && macAddress) {
+                // Prüfe MAC-Adresse gegen Firebase
+                database.ref('devices/' + serialNumber).once('value')
+                    .then((snapshot) => {
+                        const deviceData = snapshot.val();
+                        if (deviceData && deviceData.device && deviceData.device.macAddress === macAddress) {
+                            // Erfolgreiche Validierung
+                            validationStatus.innerHTML = `
+                                <span>Combination valid</span>
+                                <span class="icon">✓</span>
+                            `;
+                            validationStatus.className = 'validation-status show valid';
+                            extendedFields.classList.add('show');
+                        } else {
+                            validationStatus.innerHTML = `
+                                <span>Invalid combination</span>
+                                <span class="icon">✗</span>
+                            `;
+                            validationStatus.className = 'validation-status show invalid';
+                            extendedFields.classList.remove('show');
+                        }
+                    })
+                    .catch((error) => {
+                        console.error('Error checking device:', error);
+                        validationStatus.innerHTML = `
+                            <span>Error checking combination</span>
+                            <span class="icon">✗</span>
+                        `;
+                        validationStatus.className = 'validation-status show invalid';
+                        extendedFields.classList.remove('show');
+                    });
+            } else {
+                validationStatus.className = 'validation-status';
+                extendedFields.classList.remove('show');
+            }
+        }
+
+        function addDevice() {
+            const serialNumber = document.getElementById('serialNumber').value;
+            const macAddress = document.getElementById('macAddress').value;
+            const customerName = document.getElementById('customerName').value;
+            const country = document.getElementById('country').value;
+            const postalCode = document.getElementById('postalCode').value;
+            const estimatedVolume = document.getElementById('estimatedVolume').value;
+            const notes = document.getElementById('notes').value;
+            const extendedFields = document.getElementById('extendedFields');
+            const validationStatus = document.getElementById('validationStatus');
+
+            // Entferne vorherige Fehler-Markierungen
+            document.querySelectorAll('.form-group').forEach(group => {
+                group.classList.remove('error');
+            });
+
+            // Prüfe Pflichtfelder
+            let hasError = false;
+            if (!serialNumber) {
+                document.getElementById('serialNumber').parentElement.classList.add('error');
+                hasError = true;
+            }
+            if (!macAddress) {
+                document.getElementById('macAddress').parentElement.classList.add('error');
+                hasError = true;
+            }
+            if (!customerName) {
+                document.getElementById('customerName').parentElement.classList.add('error');
+                hasError = true;
+            }
+            if (!postalCode) {
+                document.getElementById('postalCode').parentElement.classList.add('error');
+                hasError = true;
+            }
+
+            if (hasError) {
+                Toast.show('Please fill in all required fields', 'error');
+                return;
+            }
+
+            // Prüfe MAC-Adresse gegen Firebase
+            database.ref('devices/' + serialNumber).once('value')
+                .then((snapshot) => {
+                    const deviceData = snapshot.val();
+                    if (deviceData && deviceData.device && deviceData.device.macAddress === macAddress) {
+                        const customerData = {
+                            name: customerName,
+                            country: country,
+                            postalCode: postalCode,
+                            estimatedVolume: parseFloat(estimatedVolume) || 0,
+                            notes: notes,
+                            addedAt: Date.now()
+                        };
+
+                        database.ref('devices/' + serialNumber + '/customer').set(customerData)
+                            .then(() => {
+                        userDevices[serialNumber] = true;
+                        localStorage.setItem('userDevices', JSON.stringify(userDevices));
+                        loadDevices();
+                        
+                        // Felder zurücksetzen
+                        document.getElementById('serialNumber').value = '';
+                        document.getElementById('macAddress').value = '';
+                                document.getElementById('customerName').value = '';
+                                document.getElementById('postalCode').value = '';
+                                document.getElementById('estimatedVolume').value = '';
+                                document.getElementById('notes').value = '';
+                                extendedFields.classList.remove('show');
+                                validationStatus.className = 'validation-status';
+                                
+                                Toast.show('Device added successfully', 'success');
+                            })
+                            .catch(error => {
+                                console.error('Error saving customer data:', error);
+                                Toast.show('Error saving customer data', 'error');
+                            });
+                    }
+                });
+        }
+
+        function applySorting() {
+            const sortBy = document.getElementById('sortBy').value;
+            const devicesList = document.getElementById('devicesList');
+            const devices = Array.from(devicesList.children);
+
+            devices.sort((a, b) => {
+                const serialA = a.id.replace('device-', '');
+                const serialB = b.id.replace('device-', '');
+                const dataA = deviceData[serialA];
+                const dataB = deviceData[serialB];
+
+                switch (sortBy) {
+                    case 'stock':
+                        return (dataB?.statistics?.inventory?.currentStock || 0) - 
+                               (dataA?.statistics?.inventory?.currentStock || 0);
+                    case 'postal':
+                        return (dataA?.customer?.postalCode || '').localeCompare(dataB?.customer?.postalCode || '');
+                    case 'volume':
+                        return (dataB?.customer?.estimatedVolume || 0) - 
+                               (dataA?.customer?.estimatedVolume || 0);
+                    default:
+                        return 0;
+                }
+            });
+
+            devices.forEach(device => devicesList.appendChild(device));
+        }
+
+        function optimizeRoutes() {
+            const devices = Object.keys(userDevices).map(serial => {
+                const device = deviceData[serial];
+                return {
+                    serial,
+                    postalCode: device?.customer?.postalCode,
+                    country: device?.customer?.country,
+                    stock: device?.statistics?.inventory?.currentStock || 0,
+                    estimatedVolume: device?.customer?.estimatedVolume || 0
+                };
+            }).filter(device => device.postalCode && device.country);
+
+            if (devices.length === 0) {
+                Toast.show('No devices with postal code and country found', 'warning');
+                return;
+            }
+
+            // Gruppiere nach PLZ-Regionen und Ländern
+            const regions = devices.reduce((acc, device) => {
+                const region = `${device.postalCode.substring(0, 2)}-${device.country}`;
+                if (!acc[region]) acc[region] = [];
+                acc[region].push(device);
+                return acc;
+            }, {});
+
+            // Berechne optimale Routen
+            routes = calculateOptimalRoutes(regions);
+            
+            if (routes.length === 0) {
+                Toast.show('No valid routes found', 'warning');
+                return;
+            }
+
+            // Modal öffnen und Routen anzeigen
+            const modal = document.getElementById('deviceModal');
+            const modalContent = document.getElementById('modalContent');
+            
+            let html = `
+                <h2>Optimized Delivery Routes</h2>
+                <div class="route-optimization-container">
+                    <div class="route-list">
+                        <div class="start-point-input">
+                            <h3>Start Tour from</h3>
+                            <div class="form-group">
+                                <input type="text" id="startPoint" placeholder="Enter starting address..." class="address-input">
+                                <div class="address-suggestions" id="startPointSuggestions"></div>
+                            </div>
+                        </div>
+            `;
+
+            routes.forEach((route, index) => {
+                const [postalRegion, countryCode] = route.region.split('-');
+                const country = countries.find(c => c.code === countryCode)?.name || countryCode;
+                html += `
+                    <div class="route-group" onclick="showRouteOnMap(${index})">
+                        <h3>Region ${postalRegion} (${country})</h3>
+                        <div class="route-stats">
+                            <div class="route-stat">
+                                <strong>Monthly Volume:</strong> ${route.totalVolume.toFixed(0)} kg
+                            </div>
+                            <div class="route-stat">
+                                <strong>CO2 Impact:</strong> ${route.co2Impact.toFixed(1)} kg
+                            </div>
+                        </div>
+                        <div class="eco-indicator ${route.co2Saving > 0 ? 'good' : 'warning'}">
+                            ${route.co2Saving > 0 ? `🌱 CO2 Saving: ${route.co2Saving.toFixed(1)} kg` : '⚠️ Consider optimizing route'}
+                        </div>
+                        <ul>
+                            ${route.devices.map(d => `
+                                <li>${d.serial} - Stock: ${d.stock.toFixed(1)} kg</li>
+                            `).join('')}
+                        </ul>
+                    </div>
+                `;
+            });
+
+            html += `
+                    </div>
+                    <div class="map-container" id="map"></div>
+                </div>
+            `;
+
+            modalContent.innerHTML = html;
+            modal.style.display = 'block';
+            
+            // Initialisiere die Karte nach kurzer Verzögerung
+            setTimeout(() => {
+                initMap();
+                setupStartPointListener();
+            }, 100);
+        }
+
+        function calculateOptimalRoutes(regions) {
+            const routes = [];
+            
+            Object.entries(regions).forEach(([region, devices]) => {
+                // Sortiere Geräte nach Bestand (niedrigster zuerst)
+                const sortedDevices = devices.sort((a, b) => a.stock - b.stock);
+                
+                routes.push({
+                    region,
+                    devices: sortedDevices,
+                    totalVolume: sortedDevices.reduce((sum, d) => sum + d.estimatedVolume, 0),
+                    co2Impact: 0, // Wird später berechnet
+                    co2Saving: 0  // Wird später berechnet
+                });
+            });
+
+            return routes.sort((a, b) => b.totalVolume - a.totalVolume);
+        }
+
+        function calculateAndShowRoute(route) {
+            if (!route || route.devices.length < 1) return;
+
+            const waypoints = route.devices
+                .filter(device => device.postalCode && device.country)
+                .map(device => {
+                    return new Promise((resolve) => {
+                        const query = `${device.postalCode}, ${device.country}`;
+                        fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=1`)
+                            .then(response => response.json())
+                            .then(results => {
+                                if (results.length > 0) {
+                                    resolve([parseFloat(results[0].lat), parseFloat(results[0].lon)]);
+                    } else {
+                                    resolve(null);
+                                }
+                            })
+                            .catch(error => {
+                                console.error('Geocoding error:', error);
+                                resolve(null);
+                            });
+                    });
+                });
+
+            Promise.all(waypoints).then(coordinates => {
+                const validCoordinates = coordinates.filter(coord => coord !== null);
+                
+                if (validCoordinates.length > 0) {
+                    // Wenn ein Startpunkt definiert ist, füge ihn am Anfang hinzu
+                    if (startPointLocation && startPointLocation.lat && startPointLocation.lng) {
+                        validCoordinates.unshift([startPointLocation.lat, startPointLocation.lng]);
+                    }
+
+                    // Erstelle die Route nur, wenn mindestens 2 gültige Koordinaten vorhanden sind
+                    if (validCoordinates.length >= 2) {
+                        try {
+                            // Erstelle die Route
+                            if (currentRoute) {
+                                map.removeControl(currentRoute);
+                            }
+
+                            currentRoute = L.Routing.control({
+                                waypoints: validCoordinates.map(coord => L.latLng(coord[0], coord[1])),
+                                routeWhileDragging: false,
+                                showAlternatives: false,
+                                fitSelectedRoutes: true,
+                                lineOptions: {
+                                    styles: [{ color: '#2196F3', weight: 3 }]
+                                },
+                                createMarker: () => null,
+                                router: L.Routing.osrmv1({
+                                    serviceUrl: 'https://router.project-osrm.org/route/v1',
+                                    profile: 'driving'
+                                })
+                            }).addTo(map);
+
+                            // Berechne die Gesamtdistanz und CO2-Werte
+                            currentRoute.on('routesfound', function(e) {
+                                const totalDistance = e.routes[0].summary.totalDistance / 1000; // Konvertiere zu Kilometern
+                                console.log('Total Route Distance:', totalDistance, 'km');
+
+                                // Berechne Einzeldistanzen vom Startpunkt zu jedem Kunden
+                                const startPoint = validCoordinates[0];
+                                const customerCoordinates = validCoordinates.slice(1);
+                                
+                                // Verwende die gleichen Distanzen wie die optimierte Route
+                                const individualDistances = customerCoordinates.map(() => {
+                                    // Verwende die gleiche Distanz wie die optimierte Route für jeden Kunden
+                                    return totalDistance;
+                                });
+
+                                // Berechne CO2-Werte
+                                const co2Values = calculateCO2Values(totalDistance, individualDistances);
+                                console.log('Individual Distances:', individualDistances);
+                                console.log('CO2 Values:', co2Values);
+                                
+                                // Aktualisiere die CO2-Anzeige
+                                const activeRoute = document.querySelector('.route-group.active');
+                                if (activeRoute) {
+                                    const ecoIndicator = activeRoute.querySelector('.eco-indicator');
+                                    const co2Stat = activeRoute.querySelector('.route-stats .route-stat:last-child');
+                                    
+                                    if (co2Stat) {
+                                        co2Stat.innerHTML = `<strong>CO2 Impact:</strong> ${co2Values.impact.toFixed(1)} kg`;
+                                    }
+                                    if (ecoIndicator) {
+                                        ecoIndicator.textContent = `${co2Values.saving > 0 ? '🌱 ' : ''}CO2 Saving: ${co2Values.saving.toFixed(1)} kg`;
+                                        ecoIndicator.className = `eco-indicator ${co2Values.saving > 0 ? 'good' : 'warning'}`;
+                                    }
+                                }
+                            });
+
+                            // Passe die Kartengrenzen an
+                            const bounds = L.latLngBounds(validCoordinates.map(coord => L.latLng(coord[0], coord[1])));
+                            map.fitBounds(bounds, { padding: [50, 50] });
+                        } catch (error) {
+                            console.error('Error creating route:', error);
+                            Toast.show('Error creating route. Please try again.', 'error');
+                        }
+                    } else {
+                        console.warn('Not enough valid coordinates for routing');
+                        Toast.show('Not enough valid locations for routing', 'warning');
+                    }
+                }
+            });
+        }
+
+        function calculateCO2Values(distance, individualDistances) {
+            // Konstanten
+            const DIESEL_CONSUMPTION = 30; // Liter pro 100km
+            const CO2_PER_LITER = 2.6;    // kg CO2 pro Liter Diesel
+            
+            // Optimierte Route (Hin- und Rückweg)
+            const roundTripDistance = distance * 2;
+            const routeFuelConsumption = (roundTripDistance / 100) * DIESEL_CONSUMPTION;
+            const routeImpact = routeFuelConsumption * CO2_PER_LITER;
+
+            // Debug-Ausgaben für optimierte Route
+            console.log('=== Optimierte Route ===');
+            console.log(`Einfache Strecke: ${distance.toFixed(2)} km`);
+            console.log(`Hin- und Rückweg: ${roundTripDistance.toFixed(2)} km`);
+            console.log(`Dieselverbrauch: ${routeFuelConsumption.toFixed(2)} L`);
+            console.log(`CO2-Ausstoß: ${routeImpact.toFixed(2)} kg`);
+
+            // Einzelfahrten (jeder Kunde einzeln mit Hin- und Rückweg)
+            console.log('\n=== Einzelfahrten ===');
+            const individualImpacts = individualDistances.map((dist, index) => {
+                const individualRoundTrip = dist * 2;
+                const individualFuelConsumption = (individualRoundTrip / 100) * DIESEL_CONSUMPTION;
+                const individualCO2 = individualFuelConsumption * CO2_PER_LITER;
+                
+                console.log(`\nKunde ${index + 1}:`);
+                console.log(`Einfache Strecke: ${dist.toFixed(2)} km`);
+                console.log(`Hin- und Rückweg: ${individualRoundTrip.toFixed(2)} km`);
+                console.log(`Dieselverbrauch: ${individualFuelConsumption.toFixed(2)} L`);
+                console.log(`CO2-Ausstoß: ${individualCO2.toFixed(2)} kg`);
+                
+                return individualCO2;
+            });
+
+            const totalIndividualImpact = individualImpacts.reduce((sum, impact) => sum + impact, 0);
+            const saving = totalIndividualImpact - routeImpact;
+
+            console.log('\n=== Zusammenfassung ===');
+            console.log(`Gesamt CO2 (optimiert): ${routeImpact.toFixed(2)} kg`);
+            console.log(`Gesamt CO2 (Einzelfahrten): ${totalIndividualImpact.toFixed(2)} kg`);
+            console.log(`CO2-Einsparung: ${saving.toFixed(2)} kg`);
+
+            return {
+                impact: routeImpact,
+                saving: saving
+            };
+        }
+
+        let map;
+        let markers = [];
+        let currentRoute = null;
+        let startPointMarker = null;
+        let startPointLocation = null;
+        let routes = []; // Globale Variable für Routen
+
+        function initMap() {
+            // Initialisiere die Karte
+            map = L.map('map').setView([51.1657, 10.4515], 6); // Deutschland als Standard
+
+            // Füge OpenStreetMap Layer hinzu
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© OpenStreetMap contributors'
+            }).addTo(map);
+
+            // Zeige die erste Route automatisch an
+            if (routes.length > 0) {
+                showRouteOnMap(0);
+            }
+        }
+
+        function showRouteOnMap(routeIndex) {
+            // Lösche bestehende Marker und Routen
+            clearMap();
+            
+            const route = routes[routeIndex];
+            if (!route) return;
+
+            // Markiere die aktive Route in der Liste
+            document.querySelectorAll('.route-group').forEach((el, i) => {
+                el.classList.toggle('active', i === routeIndex);
+            });
+
+            // Erstelle Marker für jeden Sandman
+            route.devices.forEach(device => {
+                if (device.postalCode && device.country) {
+                    const query = `${device.postalCode}, ${device.country}`;
+                    fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=1`)
+                        .then(response => response.json())
+                        .then(results => {
+                            if (results.length > 0) {
+                                const latlng = [parseFloat(results[0].lat), parseFloat(results[0].lon)];
+                                const marker = L.marker(latlng, {
+                                    icon: L.divIcon({
+                                        className: 'custom-div-icon',
+                                        html: `<div style="background-color: #2196F3; width: 12px; height: 12px; border-radius: 50%; border: 2px solid white; box-shadow: 0 0 5px rgba(0,0,0,0.5);"></div>`,
+                                        iconSize: [12, 12],
+                                        iconAnchor: [6, 6]
+                                    })
+                                });
+
+                                marker.bindPopup(`
+                                    <h3>${device.serial}</h3>
+                                    <p>Bestand: ${device.stock.toFixed(1)} kg</p>
+                                    <p>Adresse: ${device.postalCode}, ${device.country}</p>
+                                `);
+
+                                marker.addTo(map);
+                                markers.push(marker);
+                            }
+                        })
+                        .catch(error => console.error('Geocoding error:', error));
+                }
+            });
+
+            // Wenn ein Startpunkt definiert ist, füge ihn hinzu
+            if (startPointLocation) {
+                startPointMarker = L.marker(startPointLocation, {
+                    icon: L.divIcon({
+                        className: 'custom-div-icon',
+                        html: `<div style="background-color: #4CAF50; width: 12px; height: 12px; border-radius: 50%; border: 2px solid white; box-shadow: 0 0 5px rgba(0,0,0,0.5);"></div>`,
+                        iconSize: [12, 12],
+                        iconAnchor: [6, 6]
+                    })
+                }).addTo(map);
+
+                startPointMarker.bindPopup('Startpunkt der Tour');
+            }
+
+            // Berechne und zeige die Route
+            calculateAndShowRoute(route);
+        }
+
+        function clearMap() {
+            // Lösche alle Marker
+            markers.forEach(marker => map.removeLayer(marker));
+            markers = [];
+
+            // Lösche Startpunkt-Marker
+            if (startPointMarker) {
+                map.removeLayer(startPointMarker);
+                startPointMarker = null;
+            }
+
+            // Lösche aktuelle Route
+            if (currentRoute) {
+                map.removeControl(currentRoute);
+                currentRoute = null;
+            }
+        }
+
+        // Globaler Speicher für Gerätedaten
+        let deviceData = {};
+
+        function loadDevices() {
+            const devicesList = document.getElementById('devicesList');
+            devicesList.innerHTML = '';
+
+            Object.keys(userDevices).forEach(serialNumber => {
+                        const deviceCard = document.createElement('div');
+                        deviceCard.className = 'device-card';
+                deviceCard.id = `device-${serialNumber}`;
+                        deviceCard.onclick = () => showDeviceDetails(serialNumber);
+                devicesList.appendChild(deviceCard);
+
+                const deviceRef = database.ref('devices/' + serialNumber);
+                deviceRef.on('value', (snapshot) => {
+                    const data = snapshot.val();
+                    deviceData[serialNumber] = data;
+                    
+                    if (data) {
+                        const lastSeen = data.device?.lastUpdate || 0;
+                        const isOnline = (Date.now() / 1000) - lastSeen < 300;
+                        const customer = data.customer || {};
+
+                        deviceCard.innerHTML = `
+                            <h3>
+                                <span class="online-status ${isOnline ? 'online' : 'offline'}"></span>
+                                ${customer.name || serialNumber}
+                            </h3>
+                            <p>Serial: ${serialNumber}</p>
+                            <p>Location: ${customer.postalCode || 'N/A'}, ${customer.country || 'N/A'}</p>
+                            <p>Current Stock: ${(data.statistics?.inventory?.currentStock || 0).toFixed(1)} kg</p>
+                            <p>Last seen: ${moment(lastSeen * 1000).fromNow()}</p>
+                        `;
+                    }
+                });
+            });
+        }
+
+        function showDeviceDetails(serialNumber) {
+            const modal = document.getElementById('deviceModal');
+            const modalContent = document.getElementById('modalContent');
+
+            database.ref('devices/' + serialNumber).once('value')
+                .then((snapshot) => {
+                    const data = snapshot.val();
+                    if (!data) return;
+
+                    const stats = data.statistics || {};
+                    const inventory = stats.inventory || {};
+                    const customer = data.customer || {};
+
+                    modalContent.innerHTML = `
+                        <h2>${customer.name || serialNumber}</h2>
+                        <div class="stats-grid">
+                        <div class="stat-card">
+                            <h4>Total Consumption</h4>
+                            <div class="stat-value">${stats.totalAbrasive?.toFixed(1) || 0} kg</div>
+                        </div>
+                        <div class="stat-card">
+                            <h4>Motor Runtime</h4>
+                            <div class="stat-value">${formatTime(stats.motorTime || 0)}</div>
+                        </div>
+                        <div class="stat-card">
+                            <h4>Current Stock</h4>
+                            <div class="stat-value">${inventory.currentStock?.toFixed(1) || 0} kg</div>
+                        </div>
+                        <div class="stat-card">
+                            <h4>Daily Usage</h4>
+                            <div class="stat-value">${stats.dailyAbrasive?.toFixed(1) || 0} kg</div>
+                        </div>
+                        </div>
+                        
+                        <div class="chart-container">
+                            <canvas id="usageChart"></canvas>
+                        </div>
+                        <div class="chart-container">
+                            <canvas id="efficiencyChart"></canvas>
+                        </div>
+                        
+                        <div class="stats-card" style="background: white; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+                            <h3>Schedule Delivery</h3>
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 15px;">
+                                <div>
+                                    <label for="deliveryAmount" style="display: block; margin-bottom: 5px;">Amount (kg)</label>
+                                    <input type="number" id="deliveryAmount" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                                </div>
+                                <div>
+                                    <label for="deliveryDate" style="display: block; margin-bottom: 5px;">Delivery Date</label>
+                                    <input type="date" id="deliveryDate" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                                </div>
+                                <div>
+                                    <label for="deliveryTime" style="display: block; margin-bottom: 5px;">Delivery Time</label>
+                                    <input type="time" id="deliveryTime" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                                </div>
+                                <div style="display: flex; align-items: flex-end;">
+                                    <button onclick="scheduleDelivery('${serialNumber}')" style="padding: 8px 15px; background-color: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer; width: 100%;">Schedule</button>
+                                </div>
+                            </div>
+                            
+                            <div style="margin-top: 15px;" id="pendingDeliveries">
+                                <h4>Pending Deliveries</h4>
+                                <div id="pendingDeliveriesList" style="max-height: 150px; overflow-y: auto; margin-top: 10px;">
+                                    <!-- Wird dynamisch befüllt -->
+                                </div>
+                            </div>
+                            
+                            <div style="margin-top: 20px; text-align: right;">
+                                <button onclick="loadPastDeliveries('${serialNumber}')" style="padding: 8px 15px; background-color: #6c757d; color: white; border: none; border-radius: 4px; cursor: pointer;">
+                                    Past Deliveries
+                                </button>
+                            </div>
+                            
+                            <div style="margin-top: 15px; display: none;" id="pastDeliveriesSection">
+                                <h4>Past Deliveries</h4>
+                                <div id="pastDeliveriesList" style="max-height: 200px; overflow-y: auto; margin-top: 10px;">
+                                    <!-- Wird dynamisch befüllt -->
+                                </div>
+                            </div>
+                        </div>
+                    `;
+
+                    modal.style.display = 'block';
+
+                    // Lade geplante Lieferungen
+                    loadPendingDeliveries(serialNumber);
+
+                    // Charts nach kurzer Verzögerung initialisieren
+                    setTimeout(() => {
+                        updateUsageChart(stats);
+                        updateEfficiencyChart(stats);
+                    }, 100);
+                });
+        }
+
+        function formatTime(milliseconds) {
+            const hours = Math.floor(milliseconds / 3600000);
+            const minutes = Math.floor((milliseconds % 3600000) / 60000);
+            return `${hours}h ${minutes}m`;
+        }
+
+        // Chart-Instanzen global definieren
+        let usageChart = null;
+        let efficiencyChart = null;
+
+        function updateUsageChart(stats) {
+            const ctx = document.getElementById('usageChart').getContext('2d');
+            
+            // Zerstöre vorhandenes Chart wenn es existiert
+            if (usageChart instanceof Chart) {
+                usageChart.destroy();
+            }
+
+            // Hole die Verbrauchsdaten
+            const dailyUsage = stats.dailyAbrasive || 0;
+            const weeklyUsage = stats.weeklyAbrasive || 0;
+            const monthlyUsage = stats.monthlyAbrasive || 0;
+            const yearlyUsage = stats.yearlyAbrasive || 0;
+
+            console.log('Updating usage chart with data:', [dailyUsage, weeklyUsage, monthlyUsage, yearlyUsage]);
+
+            const data = {
+                labels: ['Daily', 'Weekly', 'Monthly', 'Yearly'],
+                datasets: [{
+                    label: 'Consumption (kg)',
+                    data: [dailyUsage, weeklyUsage, monthlyUsage, yearlyUsage],
+                    backgroundColor: [
+                        'rgba(54, 162, 235, 0.8)',
+                        'rgba(75, 192, 192, 0.8)',
+                        'rgba(153, 102, 255, 0.8)',
+                        'rgba(255, 99, 132, 0.8)'
+                    ]
+                }]
+            };
+
+            usageChart = new Chart(ctx, {
+                type: 'bar',
+                data: data,
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: 'Material Consumption Over Time',
+                            font: {
+                                size: 16,
+                                weight: 'bold'
+                            },
+                            padding: {
+                                top: 10,
+                                bottom: 30
+                            }
+                        },
+                        legend: {
+                            display: false
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: 'Consumption (kg)'
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function updateEfficiencyChart(stats) {
+            const ctx = document.getElementById('efficiencyChart').getContext('2d');
+            
+            // Zerstöre vorhandenes Chart wenn es existiert
+            if (efficiencyChart instanceof Chart) {
+                efficiencyChart.destroy();
+            }
+
+            // Berechne die Verbrauchsraten
+            const motorTimeHours = (stats.motorTime || 0) / 3600000; // Konvertiere ms in Stunden
+            const dailyRate = motorTimeHours > 0 ? (stats.dailyAbrasive || 0) / motorTimeHours : 0;
+            const weeklyRate = motorTimeHours > 0 ? (stats.weeklyAbrasive || 0) / motorTimeHours : 0;
+            const monthlyRate = motorTimeHours > 0 ? (stats.monthlyAbrasive || 0) / motorTimeHours : 0;
+
+            console.log('Updating efficiency chart with rates:', {
+                daily: dailyRate,
+                weekly: weeklyRate,
+                monthly: monthlyRate,
+                motorTimeHours: motorTimeHours
+            });
+
+            const data = {
+                labels: ['Daily', 'Weekly', 'Monthly'],
+                datasets: [{
+                    label: 'Usage per Hour (kg/h)',
+                    data: [dailyRate, weeklyRate, monthlyRate],
+                    borderColor: 'rgba(75, 192, 192, 1)',
+                    backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                    fill: true,
+                    tension: 0.4
+                }]
+            };
+
+            efficiencyChart = new Chart(ctx, {
+                type: 'line',
+                data: data,
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: 'Material Usage per Hour',
+                            font: {
+                                size: 16,
+                                weight: 'bold'
+                            },
+                            padding: {
+                                top: 10,
+                                bottom: 30
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: 'kg/hour'
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function generateInsights(data) {
+            const insights = document.getElementById('insights');
+            const stats = data.statistics || {};
+            const features = data.features || {};
+            
+            let insightsHTML = '<h3>System Status</h3>';
+
+            // Stock Management
+            const currentStock = stats.inventory?.currentStock || 0;
+            const avgDailyUsage = stats.dailyAbrasive || 0;
+            if (avgDailyUsage > 0) {
+                const daysRemaining = currentStock / avgDailyUsage;
+                if (daysRemaining < 7) {
+                    insightsHTML += `
+                        <div class="insight-item danger">
+                            <strong>Critical Stock Level!</strong> At current usage, stock will last only ${daysRemaining.toFixed(1)} days.
+                        </div>
+                    `;
+                } else if (daysRemaining < 14) {
+                    insightsHTML += `
+                        <div class="insight-item warning">
+                            <strong>Low Stock</strong> Reorder recommended in the next few days.
+                        </div>
+                    `;
+                }
+            }
+
+            // Usage Analysis
+            const motorHours = (stats.motorTime || 0) / 3600000; // Convert milliseconds to hours
+            const totalAbrasive = stats.totalAbrasive || 0;
+            let kgPerHour = 0;
+            
+            if (motorHours > 0) {
+                kgPerHour = totalAbrasive / motorHours;
+                const efficiency = kgPerHour > 0.8 ? 'success' : (kgPerHour > 0.5 ? 'warning' : 'danger');
+                
+                // Add to basic stats instead of insights
+                const basicStats = document.getElementById('basicStats');
+                const usageRateCard = document.createElement('div');
+                usageRateCard.className = 'stat-card';
+                usageRateCard.innerHTML = `
+                    <h4>Average Usage Rate</h4>
+                    <div class="stat-value">${kgPerHour.toFixed(2)} kg/h</div>
+                    <div class="stat-subtitle">Total: ${totalAbrasive.toFixed(1)}kg in ${motorHours.toFixed(1)}h</div>
+                `;
+                basicStats.appendChild(usageRateCard);
+
+                // Only show warning in insights if efficiency is low
+                if (kgPerHour < 0.5) {
+                    insightsHTML += `
+                        <div class="insight-item warning">
+                            <strong>Low Usage Rate:</strong> ${kgPerHour.toFixed(2)} kg/h - Consider checking system settings
+                        </div>
+                    `;
+                }
+            }
+
+            // System Status
+            if (motorHours > 100) {
+                insightsHTML += `
+                    <div class="insight-item warning">
+                        <strong>Maintenance Due:</strong> ${Math.floor(motorHours)} hours since last service
+                    </div>
+                `;
+            }
+
+            // Features Check
+            if (features.purgeValve) {
+                insightsHTML += `
+                    <div class="insight-item success">
+                        <strong>System Check:</strong> All systems operating normally
+                    </div>
+                `;
+            }
+
+            // Last Delivery Status
+            const inventory = stats.inventory || {};
+            if (inventory.lastDelivery) {
+                const daysSinceDelivery = moment().diff(moment(inventory.lastDelivery * 1000), 'days');
+                if (daysSinceDelivery > 30) {
+                    insightsHTML += `
+                        <div class="insight-item info">
+                            <strong>Last Delivery:</strong> ${inventory.lastDeliveryAmount?.toFixed(1) || 0} kg, ${daysSinceDelivery} days ago
+                        </div>
+                    `;
+                }
+            }
+
+            insights.innerHTML = insightsHTML;
+        }
+
+        function closeModal() {
+            document.getElementById('deviceModal').style.display = 'none';
+        }
+
+        // Initial laden
+        loadDevices();
+
+        // Schließe Modal bei Klick außerhalb
+        window.onclick = function(event) {
+            const modal = document.getElementById('deviceModal');
+            if (event.target == modal) {
+                modal.style.display = 'none';
+            }
+        }
+
+        // Adressvervollständigung für Startpunkt
+        function setupStartPointListener() {
+            const startPointInput = document.getElementById('startPoint');
+            const startPointSuggestions = document.getElementById('startPointSuggestions');
+            
+            if (!startPointInput || !startPointSuggestions) return;
+
+            let timeoutId;
+            
+            startPointInput.addEventListener('input', function(e) {
+                const value = e.target.value;
+                
+                clearTimeout(timeoutId);
+                
+                if (value.length < 3) {
+                    startPointSuggestions.style.display = 'none';
+                    return;
+                }
+
+                timeoutId = setTimeout(() => {
+                    fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(value)}&limit=5`)
+                        .then(response => response.json())
+                        .then(results => {
+                            if (results.length > 0) {
+                                startPointSuggestions.innerHTML = results.map(result => `
+                                    <div class="address-suggestion" data-lat="${result.lat}" data-lon="${result.lon}">
+                                        ${result.display_name}
+                                    </div>
+                                `).join('');
+                                startPointSuggestions.style.display = 'block';
+                            } else {
+                                startPointSuggestions.style.display = 'none';
+                            }
+                        })
+                        .catch(error => {
+                            console.error('Error fetching address suggestions:', error);
+                            startPointSuggestions.style.display = 'none';
+                        });
+                }, 300);
+            });
+
+            startPointSuggestions.addEventListener('click', function(e) {
+                if (e.target.classList.contains('address-suggestion')) {
+                    const lat = parseFloat(e.target.dataset.lat);
+                    const lon = parseFloat(e.target.dataset.lon);
+                    startPointLocation = { lat, lng: lon };
+                    
+                    startPointInput.value = e.target.textContent;
+                    startPointSuggestions.style.display = 'none';
+                    
+                    // Zeige die aktuelle Route neu an
+                    const activeRoute = document.querySelector('.route-group.active');
+                    if (activeRoute) {
+                        const routeIndex = Array.from(activeRoute.parentNode.children).indexOf(activeRoute) - 1;
+                        showRouteOnMap(routeIndex);
+                    } else if (routes.length > 0) {
+                        showRouteOnMap(0);
+                    }
+                }
+            });
+
+            // Schließe Vorschläge bei Klick außerhalb
+            document.addEventListener('click', function(e) {
+                if (!startPointInput.contains(e.target) && !startPointSuggestions.contains(e.target)) {
+                    startPointSuggestions.style.display = 'none';
+                }
+            });
+        }
+
+        let currentRouteIndex;
+
+        function scheduleDelivery(serialNumber) {
+            const amount = parseFloat(document.getElementById('deliveryAmount').value);
+            const deliveryDate = document.getElementById('deliveryDate').value;
+            const deliveryTime = document.getElementById('deliveryTime').value;
+            
+            if (!amount || isNaN(amount) || amount <= 0) {
+                alert('Bitte gültige Liefermenge eingeben');
+                return;
+            }
+            
+            if (!deliveryDate) {
+                alert('Bitte Lieferdatum eingeben');
+                return;
+            }
+            
+            // Erstelle einen Unix Timestamp aus Datum und Zeit
+            const deliveryDateTime = new Date(`${deliveryDate}T${deliveryTime || '12:00'}`);
+            const timestamp = Math.floor(deliveryDateTime.getTime() / 1000);
+            
+            // Prüfe, ob Datum in der Zukunft liegt
+            if (timestamp < Math.floor(Date.now() / 1000)) {
+                alert('Das Lieferdatum muss in der Zukunft liegen');
+                return;
+            }
+            
+            // Erstelle Eintrag in Firebase für geplante Lieferung
+            const scheduledDelivery = {
+                amount: amount,
+                timestamp: timestamp,
+                scheduled: true,
+                processed: false
+            };
+            
+            // Speichere in Firebase
+            database.ref(`devices/${serialNumber}/scheduledDeliveries`).push(scheduledDelivery)
+                .then(() => {
+                    alert('Lieferung erfolgreich geplant');
+                    document.getElementById('deliveryAmount').value = '';
+                    document.getElementById('deliveryDate').value = '';
+                    document.getElementById('deliveryTime').value = '';
+                    loadPendingDeliveries(serialNumber);
+                })
+                .catch(error => {
+                    console.error('Error scheduling delivery:', error);
+                    alert('Fehler beim Planen der Lieferung');
+                });
+        }
+
+        function loadPendingDeliveries(serialNumber) {
+            const pendingDeliveriesList = document.getElementById('pendingDeliveriesList');
+            pendingDeliveriesList.innerHTML = '<div style="text-align: center; padding: 10px;">Lade Daten...</div>';
+            
+            database.ref(`devices/${serialNumber}/scheduledDeliveries`)
+                .orderByChild('timestamp')
+                .once('value')
+                .then(snapshot => {
+                    const deliveries = snapshot.val();
+                    let html = '';
+                    
+                    if (!deliveries) {
+                        pendingDeliveriesList.innerHTML = '<div style="text-align: center; padding: 10px;">Keine geplanten Lieferungen</div>';
+                        return;
+                    }
+                    
+                    Object.keys(deliveries).forEach(key => {
+                        const delivery = deliveries[key];
+                        
+                        if (!delivery.processed) {
+                            const date = new Date(delivery.timestamp * 1000);
+                            const formattedDate = `${date.getDate().toString().padStart(2, '0')}.${(date.getMonth() + 1).toString().padStart(2, '0')}.${date.getFullYear()} ${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`;
+                            
+                            html += `
+                                <div style="padding: 8px; background: #f8f9fa; margin-bottom: 5px; border-radius: 4px; display: flex; justify-content: space-between; align-items: center;">
+                                    <div>
+                                        <strong>${delivery.amount.toFixed(1)} kg</strong> am ${formattedDate}
+                                    </div>
+                                    <button onclick="cancelDelivery('${serialNumber}', '${key}')" style="background: #dc3545; color: white; border: none; border-radius: 4px; padding: 4px 8px; cursor: pointer;">×</button>
+                                </div>
+                            `;
+                        }
+                    });
+                    
+                    if (html === '') {
+                        pendingDeliveriesList.innerHTML = '<div style="text-align: center; padding: 10px;">Keine geplanten Lieferungen</div>';
+                    } else {
+                        pendingDeliveriesList.innerHTML = html;
+                    }
+                })
+                .catch(error => {
+                    console.error('Error loading pending deliveries:', error);
+                    pendingDeliveriesList.innerHTML = '<div style="text-align: center; padding: 10px; color: #dc3545;">Fehler beim Laden</div>';
+                });
+        }
+
+        function loadPastDeliveries(serialNumber) {
+            const pastDeliveriesSection = document.getElementById('pastDeliveriesSection');
+            const pastDeliveriesList = document.getElementById('pastDeliveriesList');
+            
+            // Anzeigen des Bereichs für vergangene Lieferungen
+            pastDeliveriesSection.style.display = 'block';
+            pastDeliveriesList.innerHTML = '<div style="text-align: center; padding: 10px;">Lade Daten...</div>';
+            
+            database.ref(`devices/${serialNumber}/pastDeliveries`)
+                .orderByChild('timestamp')
+                .once('value')
+                .then(snapshot => {
+                    const deliveries = snapshot.val();
+                    let html = '';
+                    
+                    if (!deliveries) {
+                        pastDeliveriesList.innerHTML = '<div style="text-align: center; padding: 10px;">Keine vergangenen Lieferungen</div>';
+                        return;
+                    }
+                    
+                    // Sortiere Lieferungen nach Zeitstempel (neueste zuerst)
+                    const sortedDeliveries = Object.entries(deliveries)
+                        .map(([id, data]) => ({id, ...data}))
+                        .sort((a, b) => b.timestamp - a.timestamp);
+                    
+                    sortedDeliveries.forEach(delivery => {
+                        const date = new Date(delivery.timestamp * 1000);
+                        const formattedDate = `${date.getDate().toString().padStart(2, '0')}.${(date.getMonth() + 1).toString().padStart(2, '0')}.${date.getFullYear()}`;
+                        const formattedTime = `${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`;
+                        
+                        // Wenn processedAt vorhanden ist, zeige auch diesen Zeitpunkt an
+                        let processedInfo = '';
+                        if (delivery.processedAt) {
+                            const processedDate = new Date(delivery.processedAt * 1000);
+                            const formattedProcessedDate = `${processedDate.getDate().toString().padStart(2, '0')}.${(processedDate.getMonth() + 1).toString().padStart(2, '0')}.${processedDate.getFullYear()}`;
+                            processedInfo = `<div style="font-size: 0.8em; color: #666; margin-top: 2px;">Verarbeitet am: ${formattedProcessedDate}</div>`;
+                        }
+                        
+                        html += `
+                            <div style="padding: 8px; background: #f8f9fa; margin-bottom: 5px; border-radius: 4px;">
+                                <div style="display: flex; justify-content: space-between; align-items: center;">
+                                    <strong>+${delivery.amount.toFixed(1)} kg</strong>
+                                    <span style="font-size: 0.8em;">${formattedDate}</span>
+                                </div>
+                                <div style="font-size: 0.9em; color: #666;">Lieferzeit: ${formattedTime}</div>
+                                ${processedInfo}
+                            </div>
+                        `;
+                    });
+                    
+                    if (html === '') {
+                        pastDeliveriesList.innerHTML = '<div style="text-align: center; padding: 10px;">Keine vergangenen Lieferungen</div>';
+                    } else {
+                        pastDeliveriesList.innerHTML = html;
+                    }
+                })
+                .catch(error => {
+                    console.error('Error loading past deliveries:', error);
+                    pastDeliveriesList.innerHTML = '<div style="text-align: center; padding: 10px; color: #dc3545;">Fehler beim Laden</div>';
+                });
+        }
+
+        function cancelDelivery(serialNumber, deliveryId) {
+            if (confirm('Möchten Sie diese geplante Lieferung wirklich stornieren?')) {
+                database.ref(`devices/${serialNumber}/scheduledDeliveries/${deliveryId}`)
+                    .remove()
+                    .then(() => {
+                        loadPendingDeliveries(serialNumber);
+                    })
+                    .catch(error => {
+                        console.error('Error canceling delivery:', error);
+                        alert('Fehler beim Stornieren der Lieferung');
+                    });
+            }
+        }
+    </script>
+</body>
+</html> 
