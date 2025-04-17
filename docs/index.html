@@ -113,17 +113,17 @@
             position: absolute;
             width: 51%;
             left: 42.7%;
-            top: 64.2%;
+            top: 63.2%;
             transform: translate(-50%, -50%);
             pointer-events: none;
             z-index: 1;
             mix-blend-mode: normal;
             opacity: 1;
             transform-origin: 50% 50%;
-            animation: spin 10s linear infinite;
+            animation: spinWheel 10s linear infinite;
         }
             
-        @keyframes spin {
+        @keyframes spinWheel {
             from {
                 transform: translate(-50%, -50%) rotate(0deg) translateZ(0);
             }
@@ -336,28 +336,32 @@
 
         .device-card {
             background: white;
-            padding: 20px;
+            padding: 15px;
             border-radius: 8px;
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
             cursor: pointer;
-            transition: transform 0.3s;
+            transition: all 0.3s ease;
+            position: relative;
+            margin-bottom: 15px;
         }
 
         .device-card:hover {
             transform: translateY(-5px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.15);
         }
 
         .device-card h3 {
-            margin-bottom: 10px;
-            color: var(--primary-color);
+            margin-top: 0;
+            display: flex;
+            align-items: center;
+            gap: 10px;
         }
 
         .online-status {
-            display: inline-block;
-            width: 10px;
-            height: 10px;
+            width: 12px;
+            height: 12px;
             border-radius: 50%;
-            margin-right: 5px;
+            display: inline-block;
         }
 
         .online-status.online {
@@ -365,7 +369,43 @@
         }
 
         .online-status.offline {
-            background-color: var(--danger-color);
+            background-color: var(--secondary-color);
+        }
+        
+        .motor-status {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            font-size: 0.8em;
+            padding: 3px 8px;
+            border-radius: 12px;
+        }
+        
+        .motor-status.running {
+            background-color: #d4edda;
+            color: #155724;
+            display: flex;
+            align-items: center;
+        }
+        
+        .motor-status.stopped {
+            background-color: #e9ecef;
+            color: #6c757d;
+        }
+        
+        .wheel-icon {
+            width: 16px;
+            height: 16px;
+            margin-right: 5px;
+            animation: spinIcon 2s linear infinite;
+        }
+        
+        @keyframes spinIcon {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(-360deg); }
         }
 
         .modal {
@@ -630,6 +670,32 @@
         }
         .leaflet-routing-container {
             display: none;
+        }
+
+        .status-item {
+            padding: 6px 12px;
+            border-radius: 4px;
+            display: inline-flex;
+            align-items: center;
+            margin-bottom: 15px;
+            font-weight: 500;
+        }
+
+        .status-item.running {
+            background-color: #d4edda;
+            color: #155724;
+        }
+
+        .status-item.stopped {
+            background-color: #e9ecef;
+            color: #6c757d;
+        }
+
+        .status-time {
+            font-size: 0.8em;
+            opacity: 0.8;
+            margin-left: 10px;
+            font-weight: normal;
         }
     </style>
 </head>
@@ -1502,10 +1568,10 @@
             devicesList.innerHTML = '';
 
             Object.keys(userDevices).forEach(serialNumber => {
-                        const deviceCard = document.createElement('div');
-                        deviceCard.className = 'device-card';
+                const deviceCard = document.createElement('div');
+                deviceCard.className = 'device-card';
                 deviceCard.id = `device-${serialNumber}`;
-                        deviceCard.onclick = () => showDeviceDetails(serialNumber);
+                deviceCard.onclick = () => showDeviceDetails(serialNumber);
                 devicesList.appendChild(deviceCard);
 
                 const deviceRef = database.ref('devices/' + serialNumber);
@@ -1517,12 +1583,28 @@
                         const lastSeen = data.device?.lastUpdate || 0;
                         const isOnline = (Date.now() / 1000) - lastSeen < 300;
                         const customer = data.customer || {};
+                        
+                        // Motorstatus mit Feedrate abrufen
+                        const motorState = data.motorState || {};
+                        const feedrate = motorState.feedrate || 0;
+                        const isRunning = feedrate > 0;
+                        const motorLastUpdate = motorState.lastUpdate || 0;
+                        
+                        // Motorstatus immer anzeigen, wenn verfügbar
+                        const showMotorStatus = motorLastUpdate > 0;
 
                         deviceCard.innerHTML = `
                             <h3>
                                 <span class="online-status ${isOnline ? 'online' : 'offline'}"></span>
                                 ${customer.name || serialNumber}
                             </h3>
+                            ${showMotorStatus ? `
+                            <div class="motor-status ${isRunning ? 'running' : 'stopped'}">
+                                ${isRunning ? `
+                                <img src="icon-100.png" class="wheel-icon" alt="Running">
+                                <span>${Math.round(feedrate)} g/min</span>` : 
+                                `<span>Idle</span>`}
+                            </div>` : ''}
                             <p>Serial: ${serialNumber}</p>
                             <p>Location: ${customer.postalCode || 'N/A'}, ${customer.country || 'N/A'}</p>
                             <p>Current Stock: ${(data.statistics?.inventory?.currentStock || 0).toFixed(1)} kg</p>
@@ -1545,9 +1627,25 @@
                     const stats = data.statistics || {};
                     const inventory = stats.inventory || {};
                     const customer = data.customer || {};
+                    
+                    // Motorstatus mit Feedrate abrufen
+                    const motorState = data.motorState || {};
+                    const feedrate = motorState.feedrate || 0;
+                    const isRunning = feedrate > 0;
+                    const motorLastUpdate = motorState.lastUpdate || 0;
+                    const motorStatusAge = motorLastUpdate > 0 ? moment(motorLastUpdate * 1000).fromNow() : 'N/A';
 
                     modalContent.innerHTML = `
                         <h2>${customer.name || serialNumber}</h2>
+                        <div class="device-status">
+                            <div class="status-item ${isRunning ? 'running' : 'stopped'}">
+                                ${isRunning ? `
+                                <img src="icon-100.png" class="wheel-icon" alt="Running">
+                                <span>Motor: ${Math.round(feedrate)} g/min</span>` : 
+                                `<span>Motor: Idle</span>`}
+                                <span class="status-time">(updated ${motorStatusAge})</span>
+                            </div>
+                        </div>
                         <div class="stats-grid">
                         <div class="stat-card">
                             <h4>Total Consumption</h4>
