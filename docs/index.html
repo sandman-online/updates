@@ -1593,6 +1593,12 @@
                         // Motorstatus immer anzeigen, wenn verfügbar
                         const showMotorStatus = motorLastUpdate > 0;
 
+                        // Prüfe auf geplante Lieferungen
+                        const scheduledDeliveries = data.scheduledDeliveries || {};
+                        const hasScheduledDelivery = Object.values(scheduledDeliveries).some(delivery => 
+                            delivery.scheduled && !delivery.processed
+                        );
+
                         deviceCard.innerHTML = `
                             <h3>
                                 <span class="online-status ${isOnline ? 'online' : 'offline'}"></span>
@@ -1607,7 +1613,10 @@
                             </div>` : ''}
                             <p>Serial: ${serialNumber}</p>
                             <p>Location: ${customer.postalCode || 'N/A'}, ${customer.country || 'N/A'}</p>
-                            <p>Current Stock: ${(data.statistics?.inventory?.currentStock || 0).toFixed(1)} kg</p>
+                            <p style="display: flex; justify-content: space-between; align-items: center;">
+                                <span>Current Stock: ${(data.statistics?.inventory?.currentStock || 0).toFixed(1)} kg</span>
+                                ${hasScheduledDelivery ? '<span style="transform: scaleX(-1); font-size: 1.2em;" title="Scheduled Delivery">🚛</span>' : ''}
+                            </p>
                             <p>Last seen: ${moment(lastSeen * 1000).fromNow()}</p>
                         `;
                     }
