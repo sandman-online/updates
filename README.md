@@ -2,7 +2,7 @@
 
 This repository contains updates for the Sandman firmware.
 
-## Current Version: 0.9.03
+## Current Version: 0.9.6
 
 ### Changelog
 - Added online update system
