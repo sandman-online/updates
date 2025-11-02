@@ -1,11 +1,12 @@
 {
   "firmware": {
-    "version": "0.9.6",
-    "url": "https://raw.githubusercontent.com/sandman-online/updates/main/releases/0.9.6/SANDMAN_V_0_9_6.bin",
-    "changelog": "- Added Online Update-System\n- Created Test Simulator\n- Added Partner Dashboard Functionality"
+    "version": "0.9.8",
+    "url": "https://raw.githubusercontent.com/sandman-online/updates/main/releases/0.9.8/SANDMAN_V_0_9_8.bin",
+    "changelog": "- Launch Version\n- Fully Integrated Sandman Dashboard\n- accessible at https://sandman.cloud"
   },
   "filesystem": {
-    "version": "0.9.6",
-    "url": "https://raw.githubusercontent.com/sandman-online/updates/main/releases/0.9.6/SANDMAN_V_0_9_6.littlefs.bin"
+    "version": "0.9.8",
+    "url": "https://raw.githubusercontent.com/sandman-online/updates/main/releases/0.9.8/SANDMAN_V_0_9_8.littlefs.bin"
   }
 } 
+
