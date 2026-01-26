@@ -1,12 +1,13 @@
 {
   "firmware": {
-    "version": "0.9.8",
-    "url": "https://raw.githubusercontent.com/sandman-online/updates/main/releases/0.9.8/SANDMAN_V_0_9_8.bin",
+    "version": "1.0.0",
+    "url": "https://raw.githubusercontent.com/sandman-online/updates/main/releases/0.9.8/SANDMAN_V_1_0_0.bin",
     "changelog": "- Launch Version\n- Fully Integrated Sandman Dashboard\n- accessible at https://sandman.cloud"
   },
   "filesystem": {
-    "version": "0.9.8",
-    "url": "https://raw.githubusercontent.com/sandman-online/updates/main/releases/0.9.8/SANDMAN_V_0_9_8.littlefs.bin"
+    "version": "1.0.0",
+    "url": "https://raw.githubusercontent.com/sandman-online/updates/main/releases/0.9.8/SANDMAN_V_1_0_0.littlefs.bin"
   }
 } 
+
 
