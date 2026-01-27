@@ -5,10 +5,11 @@
     "changelog": "- Launch Version\n- Fully Integrated Sandman Dashboard\n- accessible at https://sandman.cloud"
   },
   "filesystem": {
-    "version": "1.0.1",
+    "version": "1.0.0",
     "url": "https://raw.githubusercontent.com/sandman-online/updates/main/releases/1.0.0/SANDMAN_V_1_0_0.littlefs.bin"
   }
 } 
+
 
 
 
