@@ -1,6 +1,6 @@
 {
   "firmware": {
-    "version": "1.0.0",
+    "version": "1.0.1",
     "url": "https://raw.githubusercontent.com/sandman-online/updates/main/releases/1.0.0/SANDMAN_V_1_0_0.bin",
     "changelog": "- Launch Version\n- Fully Integrated Sandman Dashboard\n- accessible at https://sandman.cloud"
   },
@@ -9,6 +9,7 @@
     "url": "https://raw.githubusercontent.com/sandman-online/updates/main/releases/1.0.0/SANDMAN_V_1_0_0.littlefs.bin"
   }
 } 
+
 
 
 
